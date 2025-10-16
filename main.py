@@ -1,5 +1,7 @@
 # Autor: Fabián López
 # Refactor: Aplicación del principio de responsabilidad única (SRP) en la gestión de clientes.
+# Autor: Rafael Santos
+# Refactor: Implementación de ClienteVIP
 
 class Client:
     """
@@ -16,6 +18,22 @@ class Client:
     def __str__(self):
         # Devuelve una representación legible del cliente
         return f"[{self.client_id}] {self.name} - {self.email}"
+
+class VIPClient(Client):
+    """
+    Clase que representa a un cliente VIP.
+    Hereda de Client y añade un descuento exclusivo.
+    """
+
+    def __init__(self, client_id: int, name: str, email: str, discount: float = 0.20):
+        # Se reutiliza el constructor de Client
+        super().__init__(client_id, name, email)
+        # Descuento fijo para clientes VIP
+        self.discount = discount
+
+    def __str__(self):
+        # Se sobreescribe la representación para distinguir a los clientes VIP
+        return f"[{self.client_id}] {self.name} - {self.email} (Cliente VIP - Descuento: {self.discount*100}%)"
 
 
 class ClientManager:
@@ -105,9 +123,13 @@ if __name__ == "__main__":
     client1 = Client(1, "Ana Torres", "ana.torres@email.com")
     client2 = Client(2, "Luis Pérez", "luis.perez@email.com")
 
+    # Se crea un cliente VIP de ejemplo (con descuento por defecto del 20%)
+    vip_client = VIPClient(3, "María Gómez", "maria.vip@email.com")
+
     # Se agregan los clientes al sistema
     manager.add_client(client1)
     manager.add_client(client2)
+    manager.add_client(vip_client)
 
     # Se listan los clientes actuales
     manager.list_clients()
