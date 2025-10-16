@@ -2,11 +2,27 @@
 # Refactor: Aplicación del principio de responsabilidad única (SRP) en la gestión de clientes.
 # Autor: Rafael Santos
 # Refactor: Implementación de ClienteVIP
+# Autor: Santiago Rodríguez
+# Refactor: Implementación de categorías de clientes (Regular, Frecuente, VIP)
+ 
+from enum import Enum
+ 
+ 
+class Category(Enum):
+    """
+    Enumeración que define las categorías posibles de clientes.
+    Permite evitar errores de texto y facilita la validación de categorías.
+    """
+    REGULAR = "Regular"
+    FRECUENTE = "Frecuente"
+    VIP = "VIP"
+    NO_ASIGNADA = "No asignada"
+ 
  
 class Client:
     """
     Clase que representa a un cliente dentro del sistema.
-    Tiene un identificador único, un nombre y un correo electrónico.
+    Tiene un identificador único, un nombre, un correo electrónico y una categoría.
     """
  
     def __init__(self, client_id: int, name: str, email: str):
@@ -14,17 +30,20 @@ class Client:
         self.client_id = client_id
         self.name = name
         self.email = email
+        # Categoría por defecto
+        self.category = Category.NO_ASIGNADA
  
-    def set_category(self, category: str):
+    def set_category(self, category: Category):
         """
-        Asigna una categoría al cliente (Regular, Frecuente, VIP.).
+        Asigna una categoría al cliente, validando que pertenezca al Enum Category.
         """
-        self.category = category.capitalize()
+        if not isinstance(category, Category):
+            raise ValueError("La categoría debe ser un valor válido del Enum Category.")
+        self.category = category
  
     def __str__(self):
-        # Devuelve una representación legible del cliente
-        category_info = f" - Categoría: {getattr(self, 'category', 'No asignada')}"
-        return f"[{self.client_id}] {self.name} - {self.email}{category_info}"
+        # Devuelve una representación legible y consistente del cliente
+        return f"[{self.client_id}] {self.name} - {self.email} - Categoría: {self.category.value}"
  
  
 class VIPClient(Client):
@@ -38,21 +57,27 @@ class VIPClient(Client):
         super().__init__(client_id, name, email)
         # Descuento fijo para clientes VIP
         self.discount = discount
+        # La categoría del cliente VIP se asigna automáticamente
+        self.category = Category.VIP
  
     def __str__(self):
         # Se sobreescribe la representación para distinguir a los clientes VIP
-        category_info = f" - Categoría: {getattr(self, 'category', 'No asignada')}"
-        return f"[{self.client_id}] {self.name} - {self.email} (Cliente VIP - Descuento: {self.discount*100} %){category_info}"
+        return (
+            f"[{self.client_id}] {self.name} - {self.email} "
+            f"(Cliente VIP - Descuento: {self.discount * 100:.0f}%) "
+            f"- Categoría: {self.category.value}"
+        )
  
  
 class ClientManager:
     """
     Clase encargada de realizar las operaciones CRUD sobre los clientes.
     CRUD = Create, Read, Update, Delete.
+    Además, maneja la asignación y filtrado por categorías.
     """
  
     def __init__(self):
-        # Lista donde se almacenan los objetos de tipo Client
+        # Lista donde se almacenan los objetos de tipo Client o VIPClient
         self.clients = []
  
     # ---------- Operaciones CRUD ----------
@@ -61,11 +86,9 @@ class ClientManager:
         """
         C - Agrega un nuevo cliente si no existe otro con el mismo ID.
         """
-        # Se verifica si ya existe un cliente con el mismo ID
         if self.get_client_by_id(client.client_id):
-            print(f"Ya existe un cliente con el ID {client.client_id}")
+            print(f"Ya existe un cliente con el ID {client.client_id}.")
             return
-        # Si no existe, se agrega a la lista
         self.clients.append(client)
         print(f"Cliente '{client.name}' agregado correctamente.")
  
@@ -73,13 +96,11 @@ class ClientManager:
         """
         R - Lista todos los clientes registrados.
         """
-        # Si la lista está vacía, se muestra un mensaje informativo
         if not self.clients:
             print("No hay clientes registrados.")
             return
  
         print("\nLista de clientes:")
-        # Se recorre la lista de clientes e imprime cada uno
         for client in self.clients:
             print(f"  - {client}")
  
@@ -87,28 +108,24 @@ class ClientManager:
         """
         U - Actualiza el correo electrónico de un cliente existente.
         """
-        # Se busca el cliente por su ID
         client = self.get_client_by_id(client_id)
         if client:
             old_email = client.email
-            # Se actualiza el correo
             client.email = new_email
             print(f"Correo de '{client.name}' actualizado de {old_email} a {new_email}")
         else:
-            print(f"No se encontró un cliente con ID {client_id}")
+            print(f"No se encontró un cliente con ID {client_id}.")
  
     def delete_client(self, client_id: int):
         """
         D - Elimina un cliente por su ID.
         """
-        # Se busca el cliente por su ID
         client = self.get_client_by_id(client_id)
         if client:
-            # Si existe, se elimina de la lista
             self.clients.remove(client)
             print(f"Cliente '{client.name}' eliminado correctamente.")
         else:
-            print(f"No se encontró un cliente con ID {client_id}")
+            print(f"No se encontró un cliente con ID {client_id}.")
  
     # ---------- Métodos auxiliares ----------
  
@@ -117,73 +134,31 @@ class ClientManager:
         Busca un cliente por su ID en la lista de clientes.
         Devuelve el objeto Client si se encuentra, o None si no existe.
         """
-        for client in self.clients:
-            if client.client_id == client_id:
-                return client
-        return None
+        return next((client for client in self.clients if client.client_id == client_id), None)
  
-    # ---------- asignacion de categoria ----------
+    # ---------- Gestión de categorías ----------
  
-    def assign_category(self, client_id: int, category: str):
+    def assign_category(self, client_id: int, category: Category):
         """
-        Asigna una categoría a un cliente existente.
+        Asigna una categoría a un cliente existente, validando su existencia.
         """
         client = self.get_client_by_id(client_id)
         if client:
             client.set_category(category)
-            print(f"Categoría '{category}' asignada a {client.name}.")
+            print(f"Categoría '{category.value}' asignada a {client.name}.")
         else:
             print(f"No se encontró un cliente con ID {client_id}.")
  
-    def list_by_category(self, category: str):
+    def list_by_category(self, category: Category):
         """
         Lista los clientes pertenecientes a una categoría específica.
         """
-        found = [c for c in self.clients if getattr(c, "category", "").lower() == category.lower()]
-        if not found:
-            print(f"No hay clientes en la categoría '{category}'.")
+        # Se evita el uso de variables abreviadas para mayor claridad
+        clients_in_category = [client for client in self.clients if client.category == category]
+ 
+        if not clients_in_category:
+            print(f"No hay clientes en la categoría '{category.value}'.")
         else:
-            print(f"\nClientes en la categoría '{category}':")
-            for c in found:
-                print("  -", c)
- 
- 
-# ---------- Ejemplo de uso ----------
-if __name__ == "__main__":
-    # Se crea una instancia del gestor de clientes
-    manager = ClientManager()
- 
-    # Se crean algunos clientes de ejemplo
-    client1 = Client(1, "Ana Torres", "ana.torres@email.com")
-    client2 = Client(2, "Luis Pérez", "luis.perez@email.com")
- 
-    # Se crea un cliente VIP de ejemplo (con descuento por defecto del 20%)
-    vip_client = VIPClient(3, "María Gómez", "maria.vip@email.com")
- 
-    # Se agregan los clientes al sistema
-    manager.add_client(client1)
-    manager.add_client(client2)
-    manager.add_client(vip_client)
- 
-    # Se listan los clientes actuales
-    manager.list_clients()
- 
-    # Se actualiza el correo de un cliente existente
-    manager.update_client_email(1, "ana.torres99@email.com")
- 
-    # Se elimina un cliente del registro
-    manager.delete_client(2)
- 
-    # Se muestra la lista final de clientes
-    manager.list_clients()
- 
-    # --- ASIGNACIÓN DE CATEGORÍAS ---
-    print("\n--- ASIGNACIÓN DE CATEGORÍAS ---")
-    manager.assign_category(1, "Frecuente")
-    manager.assign_category(3, "VIP")
- 
-    # --- LISTAR CLIENTES POR CATEGORÍA ---
-    print("\n--- LISTAR CLIENTES POR CATEGORÍA ---")
-    manager.list_by_category("Frecuente")
-    manager.list_by_category("VIP")
-    manager.list_by_category("Regular")
+            print(f"\nClientes en la categoría '{category.value}':")
+            for client in clients_in_category:
+                print("  -", client)
